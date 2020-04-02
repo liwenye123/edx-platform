@@ -45,7 +45,6 @@ from student.models import CourseEnrollment
 from student.tests.factories import CourseEnrollmentFactory, UserFactory
 from util.testing import UrlResetMixin
 from verify_student.tests import TestVerificationBase
-
 from xmodule.modulestore import ModuleStoreEnum
 from xmodule.modulestore.django import modulestore
 from xmodule.modulestore.tests.django_utils import ModuleStoreTestCase
@@ -900,8 +899,7 @@ class TestPayAndVerifyView(UrlResetMixin, ModuleStoreTestCase, XssTestMixin, Tes
 
         if status in ["submitted", "approved", "expired", "denied", "error"]:
             attempt.mark_ready()
-            with self.immediate_on_commit():
-                attempt.submit()
+            attempt = self.submit_attempt(attempt)
 
         if status in ["approved", "expired"]:
             attempt.approve()
@@ -1662,8 +1660,7 @@ class TestPhotoVerificationResultsCallback(ModuleStoreTestCase, TestVerification
         self.receipt_id = self.attempt.receipt_id
         self.client = Client()
 
-    def mocked_has_valid_signature(method, headers_dict, body_dict, access_key,
-                                   secret_key):  # pylint: disable=no-self-argument, unused-argument
+    def mocked_has_valid_signature(method, headers_dict, body_dict, access_key, secret_key):  # pylint: disable=no-self-argument, unused-argument
         """
         Used as a side effect when mocking `verify_student.ssencrypt.has_valid_signature`.
         """

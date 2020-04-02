@@ -51,7 +51,6 @@ from student.tests.factories import CourseEnrollmentFactory, UserFactory
 from student.views import complete_course_mode_info
 from util.model_utils import USER_SETTINGS_CHANGED_EVENT_NAME
 from util.testing import EventTestMixin
-
 from xmodule.modulestore.tests.django_utils import ModuleStoreEnum, ModuleStoreTestCase, SharedModuleStoreTestCase
 from xmodule.modulestore.tests.factories import CourseFactory, check_mongo_calls
 

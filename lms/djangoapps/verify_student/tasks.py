@@ -18,7 +18,6 @@ from openedx.core.djangoapps.site_configuration import helpers as configuration_
 
 ACE_ROUTING_KEY = getattr(settings, 'ACE_ROUTING_KEY', None)
 SOFTWARE_SECURE_VERIFICATION_ROUTING_KEY = getattr(settings, 'SOFTWARE_SECURE_VERIFICATION_ROUTING_KEY', None)
-TASK_LOG = logging.getLogger('edx.celery.task')
 log = logging.getLogger(__name__)
 
 
@@ -43,7 +42,7 @@ class BaseSoftwareSecureTask(Task):
         user_verification = SoftwareSecurePhotoVerification.objects.get(id=user_verification_id)
         if response.ok:
             user_verification.mark_submit()
-            TASK_LOG.info(
+            log.info(
                 'Sent request to Software Secure for user: %r and receipt ID %r.',
                 user_verification.user.username,
                 user_verification.receipt_id,

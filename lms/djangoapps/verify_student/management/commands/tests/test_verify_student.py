@@ -36,21 +36,23 @@ class TestVerifyStudentCommand(MockS3BotoMixin, TestVerificationBase):
         and re-submit them executes successfully
         """
         # set up some fake data to use...
-        self.create_upload_and_submit_attempt()
+        self.create_upload_and_submit_attempt_for_user()
         with patch('lms.djangoapps.verify_student.models.requests.post', new=mock_software_secure_post_error):
-            self.create_upload_and_submit_attempt()
+            self.create_upload_and_submit_attempt_for_user()
         with patch('lms.djangoapps.verify_student.models.requests.post', new=mock_software_secure_post_error):
-            self.create_upload_and_submit_attempt()
+            self.create_upload_and_submit_attempt_for_user()
+
         # check to make sure we had two successes and two failures; otherwise we've got problems elsewhere
-        assert SoftwareSecurePhotoVerification.objects.filter(status="submitted").count() == 1
-        assert SoftwareSecurePhotoVerification.objects.filter(status='must_retry').count() == 2
+        self.assertEqual(SoftwareSecurePhotoVerification.objects.filter(status="submitted").count(), 1)
+        self.assertEqual(SoftwareSecurePhotoVerification.objects.filter(status='must_retry').count(), 2)
+
         with self.immediate_on_commit():
             call_command('retry_failed_photo_verifications')
         attempts_to_retry = SoftwareSecurePhotoVerification.objects.filter(status='must_retry')
         assert not attempts_to_retry
 
     def add_test_config_for_retry_verification(self):
-        """ Adds a config for SSPVerificationRetryConfig model. """
+        """Setups verification retry configuration."""
         config = SSPVerificationRetryConfig.current()
         config.arguments = '--verification-ids 1 2 3'
         config.enabled = True
@@ -64,19 +66,19 @@ class TestVerifyStudentCommand(MockS3BotoMixin, TestVerificationBase):
             log.check_present(
                 (
                     LOGGER_NAME, 'WARNING',
-                    u"SSPVerificationRetryConfig is disabled or empty, but --args-from-database was requested."
+                    'SSPVerificationRetryConfig is disabled or empty, but --args-from-database was requested.'
                 ),
             )
         self.add_test_config_for_retry_verification()
         with patch('lms.djangoapps.verify_student.models.requests.post', new=mock_software_secure_post_error):
-            self.create_upload_and_submit_attempt()
+            self.create_upload_and_submit_attempt_for_user()
             with LogCapture(LOGGER_NAME) as log:
                 with self.immediate_on_commit():
                     call_command('retry_failed_photo_verifications')
                     log.check_present(
                         (
                             LOGGER_NAME, 'INFO',
-                            u"Attempting to retry {0} failed PhotoVerification submissions".format(1)
+                            'Attempting to retry {0} failed PhotoVerification submissions'.format(1)
                         ),
                     )
 
@@ -87,6 +89,6 @@ class TestVerifyStudentCommand(MockS3BotoMixin, TestVerificationBase):
                 log.check_present(
                     (
                         LOGGER_NAME, 'INFO',
-                        u"Fetching retry verification ids from config model"
+                        'Fetching retry verification ids from config model'
                     ),
                 )

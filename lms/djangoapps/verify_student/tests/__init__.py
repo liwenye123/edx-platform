@@ -2,13 +2,13 @@ from contextlib import contextmanager
 from datetime import timedelta
 from unittest import mock
 
+from django.conf import settings
 from django.db import DEFAULT_DB_ALIAS
 from django.test import TestCase
 from django.utils.timezone import now
+
 from lms.djangoapps.verify_student.models import SoftwareSecurePhotoVerification
 from student.tests.factories import UserFactory
-
-from django.conf import settings
 
 
 class TestVerificationBase(TestCase):
@@ -23,6 +23,9 @@ class TestVerificationBase(TestCase):
         if the connection was in auto-commit mode. This is required when
         using a subclass of django.test.TestCase as all tests are wrapped in
         a transaction that never gets committed.
+
+        TODO: Remove when immediate_on_commit function is actually implemented
+        Django Ticket #: 30456, Link: https://code.djangoproject.com/ticket/30457#no1
         """
         immediate_using = DEFAULT_DB_ALIAS if using is None else using
 
@@ -62,16 +65,23 @@ class TestVerificationBase(TestCase):
         return attempt
 
     def create_and_submit_attempt_for_user(self, user=None):
-        """Create photo verification attempt for a user."""
+        """
+        Create photo verification attempt without uploading photos
+        for a user.
+        """
         if not user:
             user = UserFactory.create()
         attempt = SoftwareSecurePhotoVerification.objects.create(user=user)
         attempt.mark_ready()
         return self.submit_attempt(attempt)
 
-    def create_upload_and_submit_attempt(self):
-        """Helper method to create a generic submission and send it."""
-        user = UserFactory.create()
+    def create_upload_and_submit_attempt_for_user(self, user=None):
+        """
+        Helper method to create a generic submission with photos for
+        a user and send it.
+        """
+        if not user:
+            user = UserFactory.create()
         attempt = SoftwareSecurePhotoVerification(user=user)
         user.profile.name = u"Rust\u01B4"
 

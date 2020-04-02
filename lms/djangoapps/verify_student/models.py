@@ -391,7 +391,7 @@ class PhotoVerification(IDVerificationAttempt):
         # student dashboard. But at this point, we lock the value into the
         # attempt.
         self.name = self.user.profile.name
-        self.status = PhotoVerification.STATUS.ready
+        self.status = self.STATUS.ready
         self.save()
 
     @status_before_must_be("must_retry", "submitted", "approved", "denied")
@@ -424,7 +424,7 @@ class PhotoVerification(IDVerificationAttempt):
             logs. This should be a relatively rare occurrence.
         """
         # If someone approves an outdated version of this, the first one wins
-        if self.status == PhotoVerification.STATUS.approved:
+        if self.status == self.STATUS.approved:
             return
 
         log.info(u"Verification for user '{user_id}' approved by '{reviewer}'.".format(
@@ -434,7 +434,7 @@ class PhotoVerification(IDVerificationAttempt):
         self.error_code = ""  # reset, in case this attempt was denied before
         self.reviewing_user = user_id
         self.reviewing_service = service
-        self.status = PhotoVerification.STATUS.approved
+        self.status = self.STATUS.approved
         self.save()
         # Emit signal to find and generate eligible certificates
         LEARNER_NOW_VERIFIED.send_robust(
@@ -461,10 +461,10 @@ class PhotoVerification(IDVerificationAttempt):
          `ready` → `submitted`
         """
         self.submitted_at = now()
-        self.status = PhotoVerification.STATUS.submitted
+        self.status = self.STATUS.submitted
         self.save()
 
-    @status_before_must_be("must_retry", "ready", "submitted")
+    @status_before_must_be("ready", "must_retry", "submitted")
     def mark_must_retry(self, error=""):
         """
         Set the attempt status to `must_retry`.
@@ -479,14 +479,14 @@ class PhotoVerification(IDVerificationAttempt):
 
         State Transitions:
 
-            → → → must_retry
+            → → → `must_retry`
             ↑        ↑ ↓
-          ready → submitted
+          `ready` → `submitted`
         """
-        if self.status == PhotoVerification.STATUS.must_retry:
+        if self.status == self.STATUS.must_retry:
             return
 
-        self.status = PhotoVerification.STATUS.must_retry
+        self.status = self.STATUS.must_retry
         self.error_msg = error
         self.save()
 
@@ -533,7 +533,7 @@ class PhotoVerification(IDVerificationAttempt):
         self.error_code = error_code
         self.reviewing_user = reviewing_user
         self.reviewing_service = reviewing_service
-        self.status = PhotoVerification.STATUS.denied
+        self.status = self.STATUS.denied
         self.save()
 
     @status_before_must_be("must_retry", "submitted", "approved", "denied")
@@ -548,14 +548,14 @@ class PhotoVerification(IDVerificationAttempt):
         reported to us that they couldn't process our submission because they
         couldn't decrypt the image we sent.
         """
-        if self.status in [PhotoVerification.STATUS.approved, PhotoVerification.STATUS.denied]:
+        if self.status in [self.STATUS.approved, self.STATUS.denied]:
             return  # If we were already approved or denied, just leave it.
 
         self.error_msg = error_msg
         self.error_code = error_code
         self.reviewing_user = reviewing_user
         self.reviewing_service = reviewing_service
-        self.status = PhotoVerification.STATUS.must_retry
+        self.status = self.STATUS.must_retry
         self.save()
 
     @classmethod

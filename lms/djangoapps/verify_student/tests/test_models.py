@@ -1,29 +1,29 @@
 # -*- coding: utf-8 -*-
 
 import base64
-import simplejson as json
 from datetime import datetime, timedelta
 
 import ddt
 import mock
 import requests.exceptions
+import simplejson as json
 from django.conf import settings
 from django.utils.timezone import now
 from freezegun import freeze_time
 from mock import patch
 from six.moves import range
-from student.tests.factories import UserFactory
-from verify_student.tests import TestVerificationBase
-from xmodule.modulestore.tests.django_utils import ModuleStoreTestCase
 
 from common.test.utils import MockS3BotoMixin
 from lms.djangoapps.verify_student.models import (
+    ManualVerification,
+    PhotoVerification,
     SoftwareSecurePhotoVerification,
     SSOVerification,
-    ManualVerification,
-    VerificationException,
-    PhotoVerification,
+    VerificationException
 )
+from student.tests.factories import UserFactory
+from verify_student.tests import TestVerificationBase
+from xmodule.modulestore.tests.django_utils import ModuleStoreTestCase
 
 FAKE_SETTINGS = {
     "SOFTWARE_SECURE": {
@@ -46,7 +46,6 @@ iwIDAQAB
     },
     "DAYS_GOOD_FOR": 10,
 }
-
 
 def mock_software_secure_post(url, headers=None, data=None, **kwargs):
     """
@@ -115,38 +114,53 @@ class TestPhotoVerification(TestVerificationBase, MockS3BotoMixin, ModuleStoreTe
         self.assertRaises(VerificationException, attempt.submit)
         self.assertRaises(VerificationException, attempt.approve)
         self.assertRaises(VerificationException, attempt.deny)
+        self.assertRaises(VerificationException, attempt.mark_must_retry)
+        self.assertRaises(VerificationException, attempt.mark_submit)
 
         # Now let's fill in some values so that we can pass the mark_ready() call
         attempt.mark_ready()
         self.assertEqual(attempt.status, PhotoVerification.STATUS.ready)
 
-        # ready (can't approve or deny unless it's STATUS.submitted → approve)
+        # ready (can't approve or deny unless it's "submitted")
         self.assertRaises(VerificationException, attempt.approve)
         self.assertRaises(VerificationException, attempt.deny)
+        attempt.mark_must_retry()
+        attempt.mark_submit()
 
         DENY_ERROR_MSG = '[{"photoIdReasons": ["Not provided"]}]'
 
         # must_retry
         attempt.status = PhotoVerification.STATUS.must_retry
         attempt.system_error("System error")
+        attempt.mark_must_retry()  # no-op
+        attempt.mark_submit()
         attempt.approve()
+
         attempt.status = PhotoVerification.STATUS.must_retry
         attempt.deny(DENY_ERROR_MSG)
 
         # submitted
         attempt.status = PhotoVerification.STATUS.submitted
         attempt.deny(DENY_ERROR_MSG)
+
+        attempt.status = PhotoVerification.STATUS.submitted
+        attempt.mark_must_retry()
+
         attempt.status = PhotoVerification.STATUS.submitted
         attempt.approve()
 
         # approved
         self.assertRaises(VerificationException, attempt.submit)
+        self.assertRaises(VerificationException, attempt.mark_must_retry)
+        self.assertRaises(VerificationException, attempt.mark_submit)
         attempt.approve()  # no-op
         attempt.system_error("System error")  # no-op, something processed it without error
         attempt.deny(DENY_ERROR_MSG)
 
         # denied
         self.assertRaises(VerificationException, attempt.submit)
+        self.assertRaises(VerificationException, attempt.mark_must_retry)
+        self.assertRaises(VerificationException, attempt.mark_submit)
         attempt.deny(DENY_ERROR_MSG)  # no-op
         attempt.system_error("System error")  # no-op, something processed it without error
         attempt.approve()
@@ -172,17 +186,17 @@ class TestPhotoVerification(TestVerificationBase, MockS3BotoMixin, ModuleStoreTe
     def test_submissions(self):
         """Test that we set our status correctly after a submission."""
         # Basic case, things go well.
-        attempt = self.create_upload_and_submit_attempt()
+        attempt = self.create_upload_and_submit_attempt_for_user()
         self.assertEqual(attempt.status, PhotoVerification.STATUS.submitted)
 
         # We post, but Software Secure doesn't like what we send for some reason
         with patch('lms.djangoapps.verify_student.tasks.requests.post', new=mock_software_secure_post_error):
-            attempt = self.create_upload_and_submit_attempt()
+            attempt = self.create_upload_and_submit_attempt_for_user()
             self.assertEqual(attempt.status, PhotoVerification.STATUS.must_retry)
 
         # We try to post, but run into an error (in this case a network connection error)
         with patch('lms.djangoapps.verify_student.tasks.requests.post', new=mock_software_secure_post_unavailable):
-            attempt = self.create_upload_and_submit_attempt()
+            attempt = self.create_upload_and_submit_attempt_for_user()
             self.assertEqual(attempt.status, PhotoVerification.STATUS.must_retry)
 
     @mock.patch.dict(settings.FEATURES, {'AUTOMATIC_VERIFY_STUDENT_IDENTITY_FOR_TESTING': True})
@@ -191,7 +205,7 @@ class TestPhotoVerification(TestVerificationBase, MockS3BotoMixin, ModuleStoreTe
         initial verification when the feature flag 'AUTOMATIC_VERIFY_STUDENT_IDENTITY_FOR_TESTING'
         is enabled.
         """
-        attempt = self.create_upload_and_submit_attempt()
+        attempt = self.create_upload_and_submit_attempt_for_user()
         self.assertEqual(attempt.photo_id_key, "fake-photo-id-key")
 
     # pylint: disable=line-too-long
