@@ -47,6 +47,7 @@ iwIDAQAB
     "DAYS_GOOD_FOR": 10,
 }
 
+
 def mock_software_secure_post(url, headers=None, data=None, **kwargs):
     """
     Mocks our interface when we post to Software Secure. Does basic assertions
