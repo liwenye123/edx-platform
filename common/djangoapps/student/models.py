@@ -1094,16 +1094,16 @@ class CourseEnrollment(models.Model):
     def course_price(self):
         return get_cosmetic_verified_display_price(self.course)
 
-    @property
-    def course_id(self):
-        return self._course_id
-
-    @course_id.setter
-    def course_id(self, value):
-        if isinstance(value, six.string_types):
-            self._course_id = CourseKey.from_string(value)
-        else:
-            self._course_id = value
+#    @property
+#    def course_id(self):
+#        return self._course_id
+#
+#    @course_id.setter
+#    def course_id(self, value):
+#        if isinstance(value, six.string_types):
+#            self._course_id = CourseKey.from_string(value)
+#        else:
+#            self._course_id = value
 
     created = models.DateTimeField(auto_now_add=True, null=True, db_index=True)
 
