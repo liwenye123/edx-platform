@@ -1135,15 +1135,6 @@ class CourseEnrollment(models.Model):
                 raise Exception("'course_id' passed in as string: {}".format(call_location))
 #                log.warning("Forced to coerce course_id: %s", call_location)
 
-        if 'course' in kwargs:
-            course = kwargs['course']
-            if isinstance(course, str):
-                kwargs['course'] = CourseKey.from_string(course)
-                call_location = "\n".join("%30s : %s:%d" % (t[3], t[1], t[2]) for t in inspect.stack()[::-1])
-                # temporarily raise exceptions to fix all places that do this in edx-platform
-                raise Exception("'course' passed in as string: {}".format(call_location))
-#                log.warning("Forced to coerce course: %s", call_location)
-
         super(CourseEnrollment, self).__init__(*args, **kwargs)
 
         # Private variable for storing course_overview to minimize calls to the database.
