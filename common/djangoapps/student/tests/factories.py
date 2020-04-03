@@ -152,8 +152,16 @@ class CourseEnrollmentFactory(DjangoModelFactory):
                     pass
 
             if course_overview is None:
+                if 'id' not in course_kwargs and course_id:
+                    course_kwargs['id'] = course_id
+
                 course_overview = CourseOverviewFactory(**course_kwargs)
             kwargs['course'] = course_overview
+
+            # 'course_id' is not needed by the model when course is passed.
+            # This arg used to be called course_id before we added the CourseOverview
+            # foreign key constraint to CourseEnrollment.
+            del kwargs['course_id']
 
         return manager.create(*args, **kwargs)
 
